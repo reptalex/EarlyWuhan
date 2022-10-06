@@ -1,5 +1,11 @@
 library(ape)
 library(data.table)
+
+
+#' Simulate negative binomial Galton-Watson process
+#' @param R0 basic reproductive number, also the mean of our negative binomial random variables
+#' @param Cases number of Cases to simulate
+#' @param k ngeative binomial dispersion parameter
 nb_gw <- function(R0=2.4,
                   Cases=1e3,
                   k=0.1){
@@ -56,7 +62,10 @@ nb_gw <- function(R0=2.4,
     return(X)
 }
 
-
+#' Same as nb_gw, but keeps looping until outbreak excees `Cases`
+#' @param R0 basic reproductive number, also the mean of our negative binomial random variables
+#' @param Cases number of Cases to simulate
+#' @param k ngeative binomial dispersion parameter
 GW_no_extinction <- function(R0=2.4,
                              Cases=1e3,
                              k=0.1){
@@ -70,6 +79,10 @@ GW_no_extinction <- function(R0=2.4,
   return(X)
 }
 
+#' Convert \code{nb_gw} output into a transmission tree (Not a phylogeny, but a transmission network from which phylogeny can be built)
+#' @param X output from \code{nb_bw}
+#' @param u log-mean of serial interval distribution (log-normally distributed serial intervals)
+#' @param sigma log-sd of serial interval distribution
 gw_tree <- function(X,u=1.39,sigma=0.568){
   tips <- setdiff(unique(X$descendants),unique(X$patient)) ## patients w/o descendants = tips
   parents <- setdiff(unique(X$patient),tips)
@@ -93,6 +106,10 @@ gw_tree <- function(X,u=1.39,sigma=0.568){
   return(tree)
 }
 
+#' Simulate a database of hospitalized patients.
+#' @param X output from \code{nb_gw}
+#' @param q hospitalization rate
+#' @param tree transmission tree from \code{gw_tree}
 hospitalize <- function(X,q,tree){
   pt_database <- data.table('id'=c(tree$tip.label,tree$node.label))
   pt_database[,time:=node.depth.edgelength(tree)]
@@ -102,12 +119,13 @@ hospitalize <- function(X,q,tree){
   return(pt_database)
 }
 
+#' Trim transmission tree to only patients in id. Can't use \code{keep.tip} because this is transmission tree not phylogeny
+#' @param tree transmission tree with labelled ondes
+#' @param id list of patients to keep - must be found in either tip labels or node labels of tree.
 trim_tree <- function(tree,id){
   #### Some manual preprocessing is needed for an edge case
   #### If we have a-->b-->c and we want to cut the branch b-->c
   #### the ape tools seem to 
-  
-  
   
   ### Subset tree to all patients at time of Alert
   node_depths=node.depth.edgelength(tree)
@@ -129,6 +147,14 @@ trim_tree <- function(tree,id){
   return(tr)
 }
 
+#' Create ascertainment propensities for contact tracing
+#' @param tr transmission tree
+#' @param pts index patients
+#' @param t0 time when contact tracing begins
+#' @param xmsn_distance logical, whether to use discretized transmission-distances (TRUE) or continuous time-distances.
+#' @param u log-mean for log-normal functional form of PCR test-positivity probability as a function of time 
+#' @param sigma log-sd for log-normal functional form of PCR test-positivity probability as a function of time 
+#' @param lambda exponential parameter for decay of ascertainment as a function of patient-patient distance
 ascertainment_propensities <- function(tr,pts,t0,xmsn_distance=TRUE,
                                        u=1.30,sigma=0.568,lambda=1){
   ### Need pairwise distances frome very node & tip to pts
@@ -163,7 +189,15 @@ ascertainment_propensities <- function(tr,pts,t0,xmsn_distance=TRUE,
   return(props)
 }
 
-
+#' A more complex contact tracing function - used to generate Figure 2B
+#' @param propensities output from \code{ascertainment_propensities}
+#' @param N number of patients to trace
+#' @param simultaneous whether to contact-trace all N patients at once, or one at a time (sequentially)
+#' @param t0 time when contact tracing begins
+#' @param tr transmission tree
+#' @param u log-mean for log-normal functional form of PCR test-positivity probability as a function of time 
+#' @param sigma log-sd for log-normal functional form of PCR test-positivity probability as a function of time 
+#' @param lambda exponential parameter for decay of ascertainment as a function of patient-patient distance
 contact_trace <- function(propensities,N=10,
                           simultaneous=TRUE,t0.=t0,tr.=tr,
                           u=1.30,sigma=0.568,lambda=1){
@@ -183,6 +217,16 @@ contact_trace <- function(propensities,N=10,
   return(pts)
 }
 
+
+#' A much simpler contact tracing function - used in figure 2
+#' @param pts index patients
+#' @param k number of patients to trace
+#' @param tr transmission tree
+#' @param detection_prob probability of detecting a close-contact of a known patient
+#' @param simultaneous whether to contact-trace all N patients at once, or one at a time (sequentially)
+#' @param u log-mean for log-normal functional form of PCR test-positivity probability as a function of time 
+#' @param sigma log-sd for log-normal functional form of PCR test-positivity probability as a function of time 
+#' @param max_prc_test_prob maximum probability of a positive PCR test given infected.
 ct <- function(pts=NULL,k=5,tr.=tr,detection_prob=0.8,
                u=1.30,sigma=0.568,max_pcr_test_prob=0.9){
   
@@ -223,7 +267,11 @@ ct <- function(pts=NULL,k=5,tr.=tr,detection_prob=0.8,
   return(pts)
 }
 
-#' ... optional input args for contact_trace
+#' replicate many contact tracings - used to generate Figure 2B
+#' @param N number of patients to contact-trace
+#' @param reps number of replicates. Samples new index pts each replicate.
+#' @param tr transmission tree
+#' @param ... optional input args for contact_trace
 dists_contact_tracing <- function(propensities,N=10,reps=100,tr.=tr,...){
   els <- tr$edge.length
   

@@ -124,6 +124,7 @@ r_40 <- c(r_20,sample(setdiff(remaining_pts,r_20),20))
 
 
 
+
 ############## Plotting ######################
 png('figures/contact_tracing_vs_random_sampling_trees.png',height=10,width=16,res = 400,units = 'in')
   par(mfrow=c(2,4))

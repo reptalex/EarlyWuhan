@@ -16,7 +16,7 @@ kappa=0.1
 v=R0+kappa*R0^2  #=pr/(1-p)^2   #variance
 r=(R0^2)/(v^2-R0)               #size
 
-### X(1),...,X(N) will be transmission events
+### X(1),...,X(N) will be transmission events in galton-watson process
 ### Let q be the probability of hospitalization
 q=0.02
 
@@ -46,13 +46,13 @@ g_PAlert=ggplot(PZ,aes(`Cluster Size`,`Alert Probability`))+
             scale_x_continuous(limits=c(0,600))+
             ggtitle('Probability of Alert vs. Cluster Size')
 
-### With P{Alert|X}, we can estimate the marginal E[X|Alert==1]
+### With P{Alert|X}, we can estimate the marginal E[X|Alert==1] = 
 ### This is the size of cluster we expect given we were alerted by the cluster
 PZ[,weighted.mean(`Cluster Size`,
                   w=`Alert Probability`*`Cluster Probability`),
    by='Medical Detection Probability']   
 
-# #note: R's weighted-mean normalizes weights w to 1
+# #note: R's weighted-mean normalizes weights w to 1, hence we don't need to divide P{Alert==1}
 # weighted.mean(1:3,w=c(.1,.4,.5)) = weighted.mean(1:3,w=c(1,4,5))
 
 Exp_cluster_size <- function(q=0.02,A=5,mx=1e4,r.=r,R0.=R0){
